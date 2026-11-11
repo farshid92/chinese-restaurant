@@ -141,12 +141,23 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
 .card .sealbig{width:74px;position:absolute;right:1.3em;top:1.3em;transform:rotate(9deg)}
 .fortune{border:2px dashed var(--ink);padding:.9em 1em;margin:1em 0 .4em;font-size:.95em;background:#fff}
 .fortune small{display:block;font-size:.7em;letter-spacing:.2em;margin-bottom:.4em;color:var(--red)}
+.tools{position:absolute;right:14px;top:12px;z-index:5;display:flex;gap:8px}
+.tools button{width:40px;height:40px;border-radius:50%;background:var(--gold);border:3px solid var(--ink);box-shadow:2px 3px 0 rgba(0,0,0,.4);font-family:Limelight,serif;font-size:22px;line-height:1;display:grid;place-items:center}
+.tools button:hover,.tools button:focus-visible{background:var(--red);color:var(--paper);outline:0}
+.tools svg{width:22px;height:22px}
+.info{width:min(560px,100%);max-height:88vh;overflow:auto;transform:none}
+.info dl{display:grid;grid-template-columns:auto 1fr;gap:.35em 1em;margin:0 0 1em;font-size:.9em}
+.info dt{font-size:.78em;letter-spacing:.14em;text-transform:uppercase;opacity:.7;padding-top:.15em}
+.info h4{font-family:Bungee,sans-serif;font-weight:400;font-size:1em;letter-spacing:.08em;margin:1.3em 0 .4em;border-bottom:2px dashed var(--ink);padding-bottom:.3em}
+.info .mi{display:flex;gap:.6em;align-items:baseline;padding:.28em 0;font-size:.9em}
+.info .mi span{flex:1}.info .mi small{display:block;opacity:.7;font-size:.86em}.info .mi b{color:var(--red)}
 .hide{display:none!important}
 
 /* ---------- phones and narrow screens ---------- */
 @media (max-width:860px){
   .stage{display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;padding:8px 0 60px}
   .title,.mat,.sign,.susan{position:relative;left:auto;right:auto;top:auto;bottom:auto;flex:none}
+  .tools{right:8px;top:8px}.tools button{width:34px;height:34px;font-size:18px;border-width:2.5px}
   .title{order:1;transform:rotate(-1.2deg);width:min(58vw,290px);border-width:3px;padding:6px 12px 0;box-shadow:4px 5px 0 rgba(0,0,0,.35);margin-bottom:10px}
   .title span{font-size:8.5px}
   .mat{order:2;width:min(95vw,47vh);transform:rotate(-.8deg);border-width:4px;border-radius:18px;box-shadow:6px 8px 0 rgba(0,0,0,.35)}
@@ -197,6 +208,8 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
     <button class="pack" data-pack disabled>PACK MY ORDER</button>
   </div>
 
+  <div class="tools"><button id="infoBtn" aria-label="Restaurant info and full menu">i</button></div>
+
   <img class="hand" id="hand" src="assets/hand.webp" alt="">
 </main>
 
@@ -226,18 +239,23 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
   </div>
 </div>
 
+<div class="veil" id="infoVeil" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
+  <div class="card info">
+    <button type="button" class="x" id="infoClose" aria-label="Close">X</button>
+    <h3 id="infoTitle">Lucky Lid</h3>
+    <p class="sub" id="infoTag"></p>
+    <dl id="infoList"></dl>
+    <p class="sub" id="infoAllergy"></p>
+    <p class="demo">SAMPLE DETAILS FOR A CONCEPT SITE</p>
+    <div id="fullMenu"></div>
+  </div>
+</div>
+
 <script src="assets/gsap.min.js"></script>
+<script src="menu.js"></script>
 <script>
-const CATS=[
- {name:'Dumplings',items:[['har-gow','Har Gow',8],['siu-mai','Siu Mai',7],['jade-dumpling','Jade Dumpling',7],['soup-dumpling','Soup Dumpling',9]]},
- {name:'Buns',items:[['char-siu-bao','Char Siu Bao',7],['custard-bun','Lava Custard Bun',7],['black-sesame-bun','Black Sesame Bun',6],['pan-fried-bun','Pan-Fried Bun',8]]},
- {name:'Rolls',items:[['cheung-fun','Cheung Fun',8],['spring-rolls','Spring Rolls',6],['lotus-rice','Lotus Leaf Rice',9],['turnip-cake','Turnip Cake',7]]},
- {name:'Greens',items:[['gai-lan','Gai Lan',6],['bok-choy','Garlic Bok Choy',6],['smashed-cucumber','Smashed Cucumber',5],['wood-ear','Wood Ear Salad',6]]},
- {name:'Sushi',kind:'tray',items:[['salmon-nigiri','Salmon Nigiri',9],['california-roll','California Roll',8],['tuna-maki','Tuna Maki',8],['cucumber-maki','Cucumber Maki',6]]},
- {name:'Sweets',items:[['egg-tart','Egg Tart',6],['sesame-balls','Sesame Balls',6],['mango-pudding','Mango Pudding',6],['osmanthus-jelly','Osmanthus Jelly',5]]},
- {name:'Tea',kind:'cup',items:[['jasmine','Jasmine Pearl',4],['pu-erh','Aged Pu-erh',5],['oolong','Iron Goddess Oolong',4],['chrysanthemum','Chrysanthemum',4]]}
-];
-const ITEMS={}; CATS.forEach((c,ci)=>c.items.forEach(([id,name,price])=>ITEMS[id]={id,name,price,ci,kind:c.kind||'box'}));
+const CATS=window.MENU, INFO=window.RESTAURANT; // both come from menu.js
+const ITEMS={}; CATS.forEach((c,ci)=>c.items.forEach(([id,name,price,desc])=>ITEMS[id]={id,name,price,desc,ci,kind:c.kind||'box'}));
 const TEA_COLOR={jasmine:'#C2C862','pu-erh':'#62261A',oolong:'#CC842A',chrysanthemum:'#EACB52'};
 const FIT={box:[.586,.507,.345],tray:[.429,.337,.601]}; // food width, centre x, centre y inside the container image
 const FORTUNES=['A full box is a short-lived thing. Order twice.','The lid you lift today reveals the lunch of tomorrow.','Good tea forgives a late delivery.','He who shares the last dumpling gains a friend for life.','Steam rises, and so will your afternoon.','Luck favours the one who orders the egg tarts.'];
@@ -251,7 +269,7 @@ const dishImg=id=>img((ITEMS[id].kind==='cup'?'tea-':'')+id); // porcelain cup o
 const entry=id=>state.cart.find(e=>e.id===id), slotOf=id=>table.querySelector(`[data-id="${id}"]`);
 const count=()=>state.cart.reduce((n,e)=>n+e.qty,0), total=()=>state.cart.reduce((n,e)=>n+e.qty*ITEMS[e.id].price,0);
 Object.keys(ITEMS).forEach(id=>{new Image().src=dishImg(id)});
-['box-open','box-front','box-closed','tray-open','tray-front','tray-closed','cup-open','cup-closed'].concat(CATS[6].items.map(t=>t[0])).forEach(n=>{new Image().src=img(n)});
+['box-open','box-front','box-closed','tray-open','tray-front','tray-closed','cup-open','cup-closed'].concat(CATS.filter(c=>c.kind==='cup').flatMap(c=>c.items.map(t=>t[0]))).forEach(n=>{new Image().src=img(n)});
 
 /* ---- menu sections + turntable ---- */
 $('#cats').innerHTML=CATS.map((c,i)=>`<button class="cat" data-c="${i}">${c.name}</button>`).join('');
@@ -261,7 +279,7 @@ let spinTl=null;
 function renderDishes(animate){
   const box=$('#dishes'), c=CATS[state.cat];
   $$('.cat').forEach((b,i)=>{b.classList.toggle('on',i===state.cat); b.setAttribute('aria-pressed',i===state.cat);});
-  const draw=()=>{box.innerHTML=c.items.map(([id,name,price],k)=>`<button class="dish${k<2?' up':''}" data-id="${id}" aria-label="Add ${name}, ${price} dollars"><img src="${dishImg(id)}" alt=""><span class="tag">${name} <b>$${price}</b><i class="cnt"></i></span></button>`).join(''); place(0,null); renderCounts();
+  const draw=()=>{box.innerHTML=c.items.map(([id,name,price],k)=>`<button class="dish${k<2?' up':''}" data-id="${id}" aria-label="Add ${name}, ${price} dollars" title="${ITEMS[id].desc}"><img src="${dishImg(id)}" alt=""><span class="tag">${name} <b>$${price}</b><i class="cnt"></i></span></button>`).join(''); place(0,null); renderCounts();
     if(!state.hinted) box.children[2]?.insertAdjacentHTML('beforeend','<span class="hint">Tap to add</span>');}; // shown until the first dish is added
   if(spinTl){spinTl.kill();spinTl=null;}
   if(!(G&&animate)){draw();return;}
@@ -400,6 +418,14 @@ function unpack(){
 }
 function reset(){ unpack(); state.cart=[]; table.innerHTML=''; layout(); ['who','tel','addr'].forEach(k=>$('#'+k).value=''); renderBill(); state.cat=0; renderDishes(true); }
 
+/* ---- info panel: restaurant details and the full menu as plain text ---- */
+$('#infoTag').textContent=INFO.tagline; $('#infoAllergy').textContent=INFO.allergens;
+$('#infoList').innerHTML=INFO.details.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+$('#fullMenu').innerHTML=CATS.map(c=>`<h4>${c.name}</h4>`+c.items.map(([id,name,price,desc])=>`<div class="mi"><span>${name}<small>${desc}</small></span><b>$${price}</b></div>`).join('')).join('');
+function showInfo(on){ $('#infoVeil').classList.toggle('show',on); $('#stage').classList.toggle('play',!on&&!state.packed); if(on) $('#infoClose').focus(); }
+$('#infoBtn').addEventListener('click',()=>showInfo(true)); $('#infoClose').addEventListener('click',()=>showInfo(false));
+$('#infoVeil').addEventListener('click',e=>{if(e.target.id==='infoVeil') showInfo(false);});
+
 /* ---- events ---- */
 $('#dishes').addEventListener('click',e=>{const b=e.target.closest('.dish'); if(b) add(b.dataset.id,b);});
 $('#cats').addEventListener('click',e=>{const b=e.target.closest('.cat'); if(b) setCat(+b.dataset.c);});
@@ -422,7 +448,7 @@ $('#checkout').addEventListener('submit',e=>{e.preventDefault();
   $('#checkout').classList.add('hide'); $('#done').classList.remove('hide'); G&&G.from('#done',{scale:.8,rotation:-6,opacity:0,duration:.45,ease:'back.out(1.8)'});
 });
 $('#again').addEventListener('click',reset);
-addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#veil').classList.contains('show')&&!$('#checkout').classList.contains('hide')) unpack();});
+addEventListener('keydown',e=>{if(e.key!=='Escape') return; if($('#infoVeil').classList.contains('show')) showInfo(false); else if($('#veil').classList.contains('show')&&!$('#checkout').classList.contains('hide')) unpack();});
 
 /* ---- chopsticks cursor (mouse only) ---- */
 let hx=innerWidth*.6,hy=innerHeight*.5,mx=hx,my=hy,down=0;
