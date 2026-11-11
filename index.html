@@ -63,6 +63,9 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
 .dish.chosen img{filter:drop-shadow(0 0 10px var(--gold)) drop-shadow(0 7px 5px rgba(0,0,0,.4))}
 .tag{display:block;flex:none;margin:-9% 0 0;width:max-content;max-width:150%;position:relative;z-index:5;transform:rotate(-3deg);background:var(--card);border:2px solid var(--ink);padding:.25em .6em;font-size:clamp(9px,.82vw,12.5px);font-weight:500;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;box-shadow:2px 3px 0 rgba(0,0,0,.3)}
 .tag b{color:var(--red)}
+.hint{position:absolute;left:50%;top:-20%;transform:translateX(-50%);background:var(--red);color:var(--paper);font-family:Bungee,sans-serif;font-size:clamp(10px,.95vw,14px);padding:.3em .7em;border:2.5px solid var(--ink);box-shadow:2px 3px 0 rgba(0,0,0,.35);white-space:nowrap;pointer-events:none;z-index:6;animation:hint 1s ease-in-out infinite}
+.hint::after{content:"";position:absolute;left:50%;top:100%;margin-left:-7px;border:7px solid transparent;border-top-color:var(--ink)}
+@keyframes hint{50%{transform:translateX(-50%) translateY(-8px)}}
 .cnt{display:none;font-style:normal;margin-left:.5em;background:var(--red);color:var(--paper);border-radius:99px;padding:0 .5em;font-weight:500}
 .cnt.show{display:inline-block}
 .dish:nth-child(odd) .tag{transform:rotate(2.5deg)}
@@ -163,7 +166,7 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
   .billbar .pack.ready{color:var(--ink);border-color:var(--paper);box-shadow:none}
 }
 @media (max-width:860px) and (max-height:700px){.sign em{display:none}.susan{margin:30px 0 28px}}
-@media (prefers-reduced-motion:reduce){.slot.active,.pack.ready{animation:none}}
+@media (prefers-reduced-motion:reduce){.slot.active,.pack.ready,.hint{animation:none}}
 </style>
 </head>
 <body>
@@ -252,7 +255,8 @@ let spinTl=null;
 function renderDishes(animate){
   const box=$('#dishes'), c=CATS[state.cat];
   $$('.cat').forEach((b,i)=>{b.classList.toggle('on',i===state.cat); b.setAttribute('aria-pressed',i===state.cat);});
-  const draw=()=>{box.innerHTML=c.items.map(([id,name,price],k)=>`<button class="dish${k<2?' up':''}" data-id="${id}" aria-label="Add ${name}, ${price} dollars"><img src="${dishImg(id)}" alt=""><span class="tag">${name} <b>$${price}</b><i class="cnt"></i></span></button>`).join(''); place(0,null); renderCounts();};
+  const draw=()=>{box.innerHTML=c.items.map(([id,name,price],k)=>`<button class="dish${k<2?' up':''}" data-id="${id}" aria-label="Add ${name}, ${price} dollars"><img src="${dishImg(id)}" alt=""><span class="tag">${name} <b>$${price}</b><i class="cnt"></i></span></button>`).join(''); place(0,null); renderCounts();
+    if(!state.hinted) box.children[2]?.insertAdjacentHTML('beforeend','<span class="hint">Tap to add</span>');}; // shown until the first dish is added
   if(spinTl){spinTl.kill();spinTl=null;}
   if(!(G&&animate)){draw();return;}
   const o={a:0}, sheen=$('#sheen'), sh={v:0};
@@ -312,6 +316,7 @@ function change(id,d){
 // add one of a dish: the chopsticks carry it from the turntable to its container
 function add(id,btn){
   if(state.packed) return;
+  if(!state.hinted){state.hinted=true; $$('.hint').forEach(h=>h.remove());}
   const it=ITEMS[id]; let e=entry(id), el=slotOf(id); const fresh=!e;
   if(fresh){e={id,qty:0}; state.cart.push(e); el=addSlot(it);}
   const landed=()=>{
