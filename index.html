@@ -235,7 +235,7 @@ const FORTUNES=['A full box is a short-lived thing. Order twice.','The lid you l
 const ANG=[292,200,22,112]; // turntable positions, back to front
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const G=window.gsap, mobile=()=>matchMedia('(max-width:860px)').matches;
-const state={cat:0,cart:[],busy:false,packed:false}; // cart: [{id,qty}] in the order things were added
+const state={cat:0,cart:[],busy:false,packed:false,flying:0}; // cart: [{id,qty}] in the order things were added
 const hand=$('#hand'), table=$('#baskets'); let auto=null, seen=false;
 const img=id=>`assets/${id}.webp`;
 const dishImg=id=>img((ITEMS[id].kind==='cup'?'tea-':'')+id); // porcelain cup on the turntable, paper cup on the table
@@ -282,7 +282,8 @@ function fill(el,it){
 function renderSlot(id){const el=slotOf(id), e=entry(id); if(!el||!e) return; const q=el.querySelector('.qty'); q.textContent='×'+e.qty; q.classList.toggle('show',e.qty>1);}
 function renderBill(){
   const ul=$('#lines');
-  ul.innerHTML=state.cart.length?state.cart.map(e=>{const it=ITEMS[e.id]; return `<li class="on"><span class="n">${it.name}</span><i></i><span class="step"><button data-d="-1" data-id="${it.id}" aria-label="One less ${it.name}">&minus;</button><b>${e.qty}</b><button data-d="1" data-id="${it.id}" aria-label="One more ${it.name}">+</button></span><span class="p">$${it.price*e.qty}</span></li>`;}).join(''):'<li class="none">Nothing yet. Tap a dish to add it.</li>';
+  const rows=state.cart.filter(e=>e.qty>0);
+  ul.innerHTML=rows.length?rows.map(e=>{const it=ITEMS[e.id]; return `<li class="on"><span class="n">${it.name}</span><i></i><span class="step"><button data-d="-1" data-id="${it.id}" aria-label="One less ${it.name}">&minus;</button><b>${e.qty}</b><button data-d="1" data-id="${it.id}" aria-label="One more ${it.name}">+</button></span><span class="p">$${it.price*e.qty}</span></li>`;}).join(''):'<li class="none">Nothing yet. Tap a dish to add it.</li>';
   const n=count(), t=total();
   $('#total').textContent='$'+t; $('#barTotal').textContent='$'+t; $('#barCount').textContent=n+(n===1?' item':' items');
   $$('[data-pack]').forEach(b=>{b.disabled=!n; b.classList.toggle('ready',n>0)});
@@ -310,12 +311,18 @@ function change(id,d){
 }
 // add one of a dish: the chopsticks carry it from the turntable to its container
 function add(id,btn){
-  if(state.busy||state.packed) return;
+  if(state.packed) return;
   const it=ITEMS[id]; let e=entry(id), el=slotOf(id); const fresh=!e;
   if(fresh){e={id,qty:0}; state.cart.push(e); el=addSlot(it);}
-  const landed=()=>{e.qty++; fill(el,it); refresh(id); const r=el.getBoundingClientRect(); puff(r.left+r.width/2,r.top+r.height*.3); bump(el); state.busy=false;};
+  const landed=()=>{
+    state.flying--;
+    if(!entry(id)){e={id,qty:0}; state.cart.push(e);}          // it was removed while the dish was in the air
+    if(!el.isConnected) el=slotOf(id)||addSlot(it);
+    e.qty++; fill(el,it); refresh(id); const r=el.getBoundingClientRect(); puff(r.left+r.width/2,r.top+r.height*.3); bump(el);
+  };
+  state.flying++;
   if(!G) return landed();
-  state.busy=true; hand.classList.add('carry');
+  hand.classList.add('carry');
   const src=btn.querySelector('img'), a=src.getBoundingClientRect(), t=el.getBoundingClientRect(), cr=el.querySelector('.bk').getBoundingClientRect();
   if(fresh) G.from(el,{scale:.4,opacity:0,duration:.3,ease:'back.out(1.7)',clearProps:'transform,opacity'});
   const cup=it.kind==='cup', fit=FIT[it.kind]||FIT.box, w=cup?cr.width*.95:t.width*fit[0], tx=cup?cr.left+cr.width*.5:t.left+t.width*fit[1]-w/2, ty=cup?cr.top-w*1.02:t.top+t.height*fit[2]-w/2;
@@ -323,14 +330,17 @@ function add(id,btn){
   const lift=Math.min(a.top,ty)-90-a.top;
   const grip=()=>{const r=f.getBoundingClientRect(); auto={x:r.left+r.width/2,y:r.top+r.height*.5};};
   if(!seen){hx=innerWidth+60;hy=a.top;} grip();
-  const d=seen?.12:.3;
-  const tl=G.timeline({onUpdate:grip,onComplete(){f.remove();auto=null;if(!seen){mx=innerWidth+420;my=innerHeight*.3;setTimeout(()=>{if(!auto)hand.classList.remove('carry')},450);}else hand.classList.remove('carry');landed();}})
+  const d=seen?.1:.25, T=fresh?.75:.45; // a dish already on the table travels faster
+  const tl=G.timeline({onUpdate:grip,onComplete(){f.remove();landed();
+      if(state.flying) return;                                   // other dishes are still in the air
+      auto=null; if(!seen){mx=innerWidth+420;my=innerHeight*.3;setTimeout(()=>{if(!auto)hand.classList.remove('carry')},450);}else hand.classList.remove('carry');}})
    .to(f,{scale:1.12,duration:d,ease:'power2.out'},0)
-   .to(f,{x:tx-a.left,width:w,scale:1,duration:.75,ease:'power1.inOut'},d)
-   .to(f,{y:lift,duration:.38,ease:'power2.out'},d)
-   .to(f,{y:ty-a.top,duration:.37,ease:'power2.in'},d+.38)
-   .to(f,{rotation:-8,duration:.37,yoyo:true,repeat:1,ease:'sine.inOut'},d);
-  if(cup){ // tip the porcelain cup and pour a stream into the paper cup
+   .to(f,{x:tx-a.left,width:w,scale:1,duration:T,ease:'power1.inOut'},d)
+   .to(f,{y:lift,duration:T/2,ease:'power2.out'},d)
+   .to(f,{y:ty-a.top,duration:T/2,ease:'power2.in'},d+T/2)
+   .to(f,{rotation:-8,duration:T/2,yoyo:true,repeat:1,ease:'sine.inOut'},d);
+  if(cup&&!fresh) tl.to(f,{y:'+='+w*.6,scale:.5,opacity:0,duration:.2,ease:'power2.in'},d+T); // another of the same tea: drop it in, no pour
+  if(cup&&fresh){ // first cup of this tea: tip the porcelain cup and pour a stream into the paper cup
     let svg, paths;
     tl.to(f,{rotation:-58,x:'-='+cr.width*.2,y:'+='+w*.12,duration:.3,ease:'power2.inOut',transformOrigin:'30% 60%'},d+.78)
       .add(()=>{
@@ -350,7 +360,7 @@ function setCat(i){ if(state.packed||i===state.cat) return; state.cat=i; renderD
 
 /* ---- pack and checkout ---- */
 function pack(){
-  if(!state.cart.length||state.busy) return;
+  if(!count()||state.busy||state.flying) return;
   state.busy=true; state.packed=true; $('#billWrap').classList.remove('open'); $('#stage').classList.remove('play');
   const slots=$$('.slot'), gap=Math.min(.14,1/slots.length);
   slots.forEach((el,i)=>{
