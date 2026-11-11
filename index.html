@@ -151,6 +151,12 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
 .info h4{font-family:Bungee,sans-serif;font-weight:400;font-size:1em;letter-spacing:.08em;margin:1.3em 0 .4em;border-bottom:2px dashed var(--ink);padding-bottom:.3em}
 .info .mi{display:flex;gap:.6em;align-items:baseline;padding:.28em 0;font-size:.9em}
 .info .mi span{flex:1}.info .mi small{display:block;opacity:.7;font-size:.86em}.info .mi b{color:var(--red)}
+.loader{position:fixed;inset:0;z-index:100;background:var(--red);color:var(--paper);display:grid;place-items:center;text-align:center;transition:opacity .45s}
+.loader.gone{opacity:0;pointer-events:none}
+.loader img{width:92px;margin:0 auto 18px;animation:wig 1.6s ease-in-out infinite}
+.loader p{font-family:Bungee,sans-serif;letter-spacing:.2em;font-size:15px}
+.loader .bar{width:220px;height:10px;border:2.5px solid var(--paper);margin:14px auto 0}
+.loader .bar i{display:block;height:100%;width:0;background:var(--gold);transition:width .2s}
 .hide{display:none!important}
 
 /* ---------- phones and narrow screens ---------- */
@@ -184,6 +190,10 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
 </style>
 </head>
 <body>
+<div class="loader" id="loader" role="status" aria-live="polite">
+  <div><img src="assets/seal.svg" alt=""><p>SETTING THE TABLE</p><div class="bar"><i id="loadBar"></i></div></div>
+</div>
+
 <main class="stage play" id="stage">
   <h1 class="sr">Lucky Lid Dim Sum and Sushi: build your order</h1>
   <div class="title"><img src="assets/title.svg" alt="Lucky Lid"><span>DIM SUM AND SUSHI</span></div>
@@ -268,8 +278,9 @@ const img=id=>`assets/${id}.webp`;
 const dishImg=id=>img((ITEMS[id].kind==='cup'?'tea-':'')+id); // porcelain cup on the turntable, paper cup on the table
 const entry=id=>state.cart.find(e=>e.id===id), slotOf=id=>table.querySelector(`[data-id="${id}"]`);
 const count=()=>state.cart.reduce((n,e)=>n+e.qty,0), total=()=>state.cart.reduce((n,e)=>n+e.qty*ITEMS[e.id].price,0);
-Object.keys(ITEMS).forEach(id=>{new Image().src=dishImg(id)});
-['box-open','box-front','box-closed','tray-open','tray-front','tray-closed','cup-open','cup-closed'].concat(CATS.filter(c=>c.kind==='cup').flatMap(c=>c.items.map(t=>t[0]))).forEach(n=>{new Image().src=img(n)});
+// every image the page uses, loaded behind the loading screen before the table appears
+const ART=[...new Set([...Object.keys(ITEMS).map(dishImg),...Object.values(ITEMS).filter(i=>i.kind==='cup').map(i=>img(i.id)),
+  ...['box-open','box-front','box-closed','tray-open','tray-front','tray-closed','cup-open','cup-closed','bg','susan','hand'].map(img)])];
 
 /* ---- menu sections + turntable ---- */
 $('#cats').innerHTML=CATS.map((c,i)=>`<button class="cat" data-c="${i}">${c.name}</button>`).join('');
@@ -458,7 +469,11 @@ addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')down=1}); addEvent
   if(w) hand.style.transform=`translate(${hx-w*.02}px,${hy-h*.84}px) rotate(${auto||down?-8:(mx-hx)*.04}deg)`;requestAnimationFrame(loop);})();
 
 addEventListener('resize',()=>{if(!spinTl)place(0,null);});
-layout(); renderDishes(true); renderBill();
+layout(); renderBill();
+let ready=0;
+function start(){ if(start.done) return; start.done=true; $('#loader').classList.add('gone'); renderDishes(true); }
+ART.forEach(u=>{const i=new Image(); i.onload=i.onerror=()=>{ready++; $('#loadBar').style.width=ready/ART.length*100+'%'; if(ready===ART.length) setTimeout(start,200);}; i.src=u;});
+setTimeout(start,8000); // never leave a slow connection stuck on the loading screen
 </script>
 </body>
 </html>
