@@ -145,6 +145,7 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
 .tools button{width:40px;height:40px;border-radius:50%;background:var(--gold);border:3px solid var(--ink);box-shadow:2px 3px 0 rgba(0,0,0,.4);font-family:Limelight,serif;font-size:22px;line-height:1;display:grid;place-items:center}
 .tools button:hover,.tools button:focus-visible{background:var(--red);color:var(--paper);outline:0}
 .tools svg{width:22px;height:22px}
+#sndBtn .off,#sndBtn[aria-pressed=false] .on{display:none}#sndBtn[aria-pressed=false] .off{display:inline}
 .info{width:min(560px,100%);max-height:88vh;overflow:auto;transform:none}
 .info dl{display:grid;grid-template-columns:auto 1fr;gap:.35em 1em;margin:0 0 1em;font-size:.9em}
 .info dt{font-size:.78em;letter-spacing:.14em;text-transform:uppercase;opacity:.7;padding-top:.15em}
@@ -218,7 +219,7 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
     <button class="pack" data-pack disabled>PACK MY ORDER</button>
   </div>
 
-  <div class="tools"><button id="infoBtn" aria-label="Restaurant info and full menu">i</button></div>
+  <div class="tools"><button id="infoBtn" aria-label="Restaurant info and full menu">i</button><button id="sndBtn" aria-label="Sound" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path class="on" d="M15.5 8.5a5 5 0 010 7M18 6a8.5 8.5 0 010 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="off" d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
 
   <img class="hand" id="hand" src="assets/hand.webp" alt="">
 </main>
@@ -282,6 +283,29 @@ const count=()=>state.cart.reduce((n,e)=>n+e.qty,0), total=()=>state.cart.reduce
 const ART=[...new Set([...Object.keys(ITEMS).map(dishImg),...Object.values(ITEMS).filter(i=>i.kind==='cup').map(i=>img(i.id)),
   ...['box-open','box-front','box-closed','tray-open','tray-front','tray-closed','cup-open','cup-closed','bg','susan','hand'].map(img)])];
 
+/* ---- sound: small effects made in code, no audio files ---- */
+const Snd={on:true,ctx:null,
+  wake(){ if(!this.ctx){const C=window.AudioContext||window.webkitAudioContext; if(C) this.ctx=new C();} if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); return this.ctx; },
+  tone(f0,f1,dur,vol=.12,type='sine',at=0){ const c=this.ctx,t=c.currentTime+at,o=c.createOscillator(),g=c.createGain();
+    o.type=type; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t+dur+.02); },
+  hiss(f0,f1,dur,vol=.08,at=0){ const c=this.ctx,t=c.currentTime+at,n=c.createBufferSource(),b=c.createBuffer(1,Math.ceil(c.sampleRate*dur),c.sampleRate),d=b.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    const f=c.createBiquadFilter(),g=c.createGain(); f.type='bandpass'; f.Q.value=1.2; f.frequency.setValueAtTime(f0,t); f.frequency.exponentialRampToValueAtTime(f1,t+dur);
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+dur*.2); g.gain.linearRampToValueAtTime(0,t+dur);
+    n.buffer=b; n.connect(f).connect(g).connect(c.destination); n.start(t); },
+  play(name){ if(!this.on||!this.wake()) return;
+    ({pick:()=>this.tone(520,880,.09,.09,'triangle'),
+      land:()=>{this.tone(240,110,.14,.2); this.hiss(900,300,.09,.06);},
+      pour:()=>this.hiss(700,1700,.6,.1),
+      spin:()=>this.hiss(350,1500,.4,.05),
+      less:()=>this.tone(420,210,.1,.1,'triangle'),
+      more:()=>this.tone(420,640,.08,.09,'triangle'),
+      pack:()=>{this.tone(170,90,.12,.2); this.hiss(1800,500,.07,.07);},
+      done:()=>[523,659,784,1047].forEach((f,i)=>this.tone(f,f,.22,.11,'triangle',i*.09))})[name]?.(); }
+};
+
 /* ---- menu sections + turntable ---- */
 $('#cats').innerHTML=CATS.map((c,i)=>`<button class="cat" data-c="${i}">${c.name}</button>`).join('');
 function spot(k,a){const m=mobile(),t=(ANG[k]+a)*Math.PI/180; return [50+(m?32:34)*Math.cos(t),(m?31:33)+(m?25:30)*Math.sin(t)];}
@@ -339,7 +363,7 @@ function puff(x,y){
 function change(id,d){
   if(state.busy||state.packed) return;
   const e=entry(id); if(!e) return;
-  e.qty+=d;
+  e.qty+=d; Snd.play(d>0?'more':'less');
   if(e.qty<=0){
     state.cart.splice(state.cart.indexOf(e),1); const el=slotOf(id);
     const gone=()=>{el.remove(); layout();};
@@ -352,13 +376,14 @@ function change(id,d){
 function add(id,btn){
   if(state.packed) return;
   if(!state.hinted){state.hinted=true; $$('.hint').forEach(h=>h.remove());}
+  Snd.play('pick');
   const it=ITEMS[id]; let e=entry(id), el=slotOf(id); const fresh=!e;
   if(fresh){e={id,qty:0}; state.cart.push(e); el=addSlot(it);}
   const landed=()=>{
     state.flying--;
     if(!entry(id)){e={id,qty:0}; state.cart.push(e);}          // it was removed while the dish was in the air
     if(!el.isConnected) el=slotOf(id)||addSlot(it);
-    e.qty++; fill(el,it); refresh(id); const r=el.getBoundingClientRect(); puff(r.left+r.width/2,r.top+r.height*.3); bump(el);
+    e.qty++; fill(el,it); refresh(id); const r=el.getBoundingClientRect(); puff(r.left+r.width/2,r.top+r.height*.3); bump(el); Snd.play('land');
   };
   state.flying++;
   if(!G) return landed();
@@ -389,14 +414,14 @@ function add(id,btn){
         const dd=`M${x0},${y0} Q${x0-sw*.6},${(y0+y1)/2} ${x1},${y1}`;
         svg.innerHTML=`<path pathLength="1" d="${dd}" stroke="${TEA_COLOR[id]}" stroke-width="${sw}"/><path pathLength="1" d="${dd}" stroke="#fff" stroke-opacity=".4" stroke-width="${sw*.28}" transform="translate(${-sw*.18},0)"/>`;
         document.body.append(svg); paths=svg.querySelectorAll('path');
-        G.fromTo(paths,{strokeDashoffset:1},{strokeDashoffset:0,duration:.16,ease:'power1.in'});
+        G.fromTo(paths,{strokeDashoffset:1},{strokeDashoffset:0,duration:.16,ease:'power1.in'}); Snd.play('pour');
       },d+1.04)
       .add(()=>{fill(el,it);puff(cr.left+cr.width/2,cr.top+cr.height*.12);},d+1.22)
       .add(()=>{G.to(paths,{strokeDashoffset:-1,duration:.2,ease:'power1.in',onComplete:()=>svg.remove()});},d+1.55)
       .to(f,{opacity:0,rotation:-20,y:'-='+w*.3,duration:.3,ease:'power1.in'},d+1.72);
   }
 }
-function setCat(i){ if(state.packed||i===state.cat) return; state.cat=i; renderDishes(true); }
+function setCat(i){ if(state.packed||i===state.cat) return; state.cat=i; Snd.play('spin'); renderDishes(true); }
 
 /* ---- pack and checkout ---- */
 function pack(){
@@ -405,7 +430,7 @@ function pack(){
   const slots=$$('.slot'), gap=Math.min(.14,1/slots.length);
   slots.forEach((el,i)=>{
     const k=ITEMS[el.dataset.id].kind;
-    const close=()=>{el.querySelector('.bk').src=img(k+'-closed'); el.classList.add('closed');
+    const close=()=>{el.querySelector('.bk').src=img(k+'-closed'); el.classList.add('closed'); Snd.play('pack');
       const r=el.getBoundingClientRect(); puff(r.left+r.width/2,r.top+r.height*.3);
       G&&G.fromTo(el,{scaleY:.84,scaleX:1.07},{scaleY:1,scaleX:1,duration:.55,ease:'elastic.out(1,.4)',clearProps:'transform'});};
     if(!G) return close();
@@ -434,6 +459,7 @@ $('#infoTag').textContent=INFO.tagline; $('#infoAllergy').textContent=INFO.aller
 $('#infoList').innerHTML=INFO.details.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
 $('#fullMenu').innerHTML=CATS.map(c=>`<h4>${c.name}</h4>`+c.items.map(([id,name,price,desc])=>`<div class="mi"><span>${name}<small>${desc}</small></span><b>$${price}</b></div>`).join('')).join('');
 function showInfo(on){ $('#infoVeil').classList.toggle('show',on); $('#stage').classList.toggle('play',!on&&!state.packed); if(on) $('#infoClose').focus(); }
+$('#sndBtn').addEventListener('click',e=>{Snd.on=!Snd.on; e.currentTarget.setAttribute('aria-pressed',Snd.on); if(Snd.on) Snd.play('more');});
 $('#infoBtn').addEventListener('click',()=>showInfo(true)); $('#infoClose').addEventListener('click',()=>showInfo(false));
 $('#infoVeil').addEventListener('click',e=>{if(e.target.id==='infoVeil') showInfo(false);});
 
@@ -456,6 +482,7 @@ $('#checkout').addEventListener('submit',e=>{e.preventDefault();
   if(bad.length){ $('#'+bad[0]).focus(); return; }
   $('#doneSub').textContent=`Thanks, ${v('who')}. Heading to ${v('addr')}, ${$('#when').value.toLowerCase()}.`;
   $('#fortune').textContent=FORTUNES[Math.floor(Math.random()*FORTUNES.length)];
+  Snd.play('done');
   $('#checkout').classList.add('hide'); $('#done').classList.remove('hide'); G&&G.from('#done',{scale:.8,rotation:-6,opacity:0,duration:.45,ease:'back.out(1.8)'});
 });
 $('#again').addEventListener('click',reset);
