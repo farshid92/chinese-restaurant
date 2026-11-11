@@ -114,7 +114,7 @@ def logo_a():
     b += f'<circle cx="{c}" cy="{c}" r="268" fill="none" stroke="{PAPER}" stroke-width="4"/>'
     b += f'<circle cx="{c}" cy="{c}" r="150" fill="none" stroke="{PAPER}" stroke-width="4"/>'
     b += arc(deco, 'LUCKY LID', 80, c, c, 182, PAPER, ls=6)
-    b += arc(block, 'DIM SUM HOUSE', 30, c, c, 236, GOLD, ls=7, bottom=True)
+    b += arc(block, 'DIM SUM AND SUSHI', 27, c, c, 236, GOLD, ls=5, bottom=True)
     for sx in (-1, 1):
         b += f'<circle cx="{c+sx*212}" cy="{c+52}" r="9" fill="{GOLD}"/>'
     b += lid_top(c, c, 132, RED, GOLD, PAPER)
@@ -171,7 +171,7 @@ def logo_c():
             b += f'<path fill="{INK}" d="{p}"/>'
     # footer
     b += f'<rect x="30" y="590" width="{W-60}" height="140" fill="{INK}" clip-path="url(#inner)"/>'
-    b += line(block, 'DIM SUM HOUSE', 40, 300, 652, GOLD, ls=5)
+    b += line(block, 'DIM SUM AND SUSHI', 34, 300, 650, GOLD, ls=4)
     b += line(slim, 'STEAMED TO ORDER', 30, 300, 702, PAPER, ls=8)
     return svg('logo-c-matchbox', W, H, b)
 
