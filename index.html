@@ -128,10 +128,12 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
 .card{width:min(430px,100%);background:var(--card);border:4px solid var(--ink);box-shadow:10px 12px 0 rgba(0,0,0,.45);padding:1.6em 1.6em 1.5em;position:relative;transform:rotate(-1deg)}
 .card h3{font-family:Limelight,serif;font-weight:400;font-size:2.3em;line-height:1}
 .card p.sub{margin:.5em 0 1.1em;font-size:.86em;opacity:.8}
-.card label{display:block;font-size:.72em;letter-spacing:.14em;text-transform:uppercase;margin:.9em 0 .3em}
+.demo{display:inline-block;background:var(--ink);color:var(--gold);font-size:.7em;letter-spacing:.16em;padding:.35em .8em;margin-bottom:.2em}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.card label{display:block;font-size:.72em;letter-spacing:.14em;text-transform:uppercase;margin:.6em 0 .3em}
 .card input,.card select{width:100%;font:inherit;padding:.65em .7em;border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:0}
 .card input:focus,.card select:focus{outline:3px solid var(--gold)}
-.card .err{color:var(--red);font-size:.8em;min-height:1.3em;margin-top:.3em}
+.card .err{color:var(--red);font-size:.78em;min-height:1.2em;margin-top:.2em}
 .card .go{margin-top:.5em;background:var(--red);color:var(--paper);border:2.5px solid var(--ink);box-shadow:3px 4px 0 var(--ink);font-family:Bungee,sans-serif;padding:.75em 1.3em;font-size:1em}
 .card .go:hover{background:var(--gold);color:var(--ink)}
 .card .x{position:absolute;right:.7em;top:.6em;width:2em;height:2em;border:2px solid var(--ink);background:var(--gold);font-family:Bungee,sans-serif}
@@ -202,6 +204,9 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
     <button type="button" class="x" id="closeCo" aria-label="Back to the table">X</button>
     <h3 id="coTitle">Where to?</h3>
     <p class="sub" id="coSub"></p>
+    <p class="demo">CONCEPT SITE &middot; NO ORDER IS SENT</p>
+    <div class="row2"><div><label for="who">Name</label><input id="who" autocomplete="name" placeholder="Mei Lin"><div class="err" id="whoErr" role="alert"></div></div>
+    <div><label for="tel">Phone</label><input id="tel" type="tel" autocomplete="tel" placeholder="555 0142"><div class="err" id="telErr" role="alert"></div></div></div>
     <label for="addr">Delivery address</label>
     <input id="addr" autocomplete="street-address" placeholder="12 Jade Lane, Apt 8">
     <div class="err" id="addrErr" role="alert"></div>
@@ -215,7 +220,7 @@ img{display:block;max-width:100%;user-select:none;-webkit-user-drag:none}
     <h3>Steaming!</h3>
     <p class="sub" id="doneSub"></p>
     <div class="fortune"><small>YOUR FORTUNE</small><span id="fortune"></span></div>
-    <p class="sub">This is a demo. No real order was placed.</p>
+    <p class="demo">CONCEPT SITE &middot; NOTHING WAS ORDERED</p>
     <button type="button" class="go" id="again">BUILD ANOTHER</button>
   </div>
 </div>
@@ -386,13 +391,13 @@ function openCheckout(){
   const what=parts.length>1?parts.slice(0,-1).join(', ')+' and '+parts.at(-1):parts[0];
   $('#coSub').textContent=`${what[0].toUpperCase()+what.slice(1)} · delivery included · $${t}`;
   $('#checkout').classList.remove('hide'); $('#done').classList.add('hide'); $('#veil').classList.add('show');
-  G&&G.from('#checkout',{y:60,opacity:0,duration:.4,ease:'back.out(1.6)'}); $('#addr').focus(); state.busy=false;
+  G&&G.from('#checkout',{y:60,opacity:0,duration:.4,ease:'back.out(1.6)'}); $('#who').focus(); state.busy=false;
 }
 function unpack(){
   $$('.slot').forEach(el=>{const it=ITEMS[el.dataset.id]; el.classList.remove('closed'); el.querySelector('.bk').src=img(it.kind==='cup'?it.id:it.kind+'-open'); const f=el.querySelector('.food'); f&&G&&G.set(f,{clearProps:'transform,opacity'});});
   state.packed=false; $('#veil').classList.remove('show'); $('#stage').classList.add('play');
 }
-function reset(){ unpack(); state.cart=[]; table.innerHTML=''; layout(); $('#addr').value=''; renderBill(); state.cat=0; renderDishes(true); }
+function reset(){ unpack(); state.cart=[]; table.innerHTML=''; layout(); ['who','tel','addr'].forEach(k=>$('#'+k).value=''); renderBill(); state.cat=0; renderDishes(true); }
 
 /* ---- events ---- */
 $('#dishes').addEventListener('click',e=>{const b=e.target.closest('.dish'); if(b) add(b.dataset.id,b);});
@@ -403,10 +408,15 @@ $$('[data-pack]').forEach(b=>b.addEventListener('click',pack));
 $('#barInfo').addEventListener('click',()=>$('#billWrap').classList.toggle('open'));
 $('#billWrap').addEventListener('click',e=>{if(e.target.id==='billWrap') e.currentTarget.classList.remove('open');});
 $('#closeCo').addEventListener('click',unpack);
-$('#addr').addEventListener('input',()=>$('#addrErr').textContent='');
+['who','tel','addr'].forEach(k=>$('#'+k).addEventListener('input',()=>$('#'+k+'Err').textContent=''));
 $('#checkout').addEventListener('submit',e=>{e.preventDefault();
-  if(!$('#addr').value.trim()){ $('#addrErr').textContent='Enter a delivery address first.'; $('#addr').focus(); return; }
-  $('#doneSub').textContent=`Heading to ${$('#addr').value.trim()}, ${$('#when').value.toLowerCase()}.`;
+  const v=k=>$('#'+k).value.trim(), bad=[];
+  const check=(k,ok,msg)=>{$('#'+k+'Err').textContent=ok?'':msg; if(!ok) bad.push(k);};
+  check('who',v('who').length>1,'Enter your name.');
+  check('tel',v('tel').replace(/\D/g,'').length>=6,'Enter a phone number.');
+  check('addr',v('addr').length>4,'Enter a delivery address.');
+  if(bad.length){ $('#'+bad[0]).focus(); return; }
+  $('#doneSub').textContent=`Thanks, ${v('who')}. Heading to ${v('addr')}, ${$('#when').value.toLowerCase()}.`;
   $('#fortune').textContent=FORTUNES[Math.floor(Math.random()*FORTUNES.length)];
   $('#checkout').classList.add('hide'); $('#done').classList.remove('hide'); G&&G.from('#done',{scale:.8,rotation:-6,opacity:0,duration:.45,ease:'back.out(1.8)'});
 });
